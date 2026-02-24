@@ -1,7 +1,7 @@
 export async function getPrezzoPerStrumento(ticker, isin) {
   try {
     const params = isin ? `?isin=${isin}` : '';
-    const res = await fetch(`https://portfolio-tracker-backend-pk4y.onrender.com/api/price/${ticker}${params}`);
+    const res = await fetch(`https://portfolio-tracker-backend-xh7o.onrender.com/api/price/${ticker}${params}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {

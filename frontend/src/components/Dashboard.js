@@ -648,7 +648,7 @@ function GraficoStorico({ strumento }) {
   useEffect(() => {
     setLoading(true); setErrore(false);
     const sym = strumento.yahooSymbol || strumento.ticker;
-    fetch(`https://portfolio-tracker-backend-pk4y.onrender.com/api/history/${encodeURIComponent(sym)}`)
+    fetch(`https://portfolio-tracker-backend-xh7o.onrender.com/api/history/${encodeURIComponent(sym)}`)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => { setStorico(d.data); setLoading(false); })
       .catch(() => { setErrore(true); setLoading(false); });
