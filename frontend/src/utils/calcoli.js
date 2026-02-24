@@ -23,11 +23,6 @@ export const TIPI = {
                      'Rit.ratei pass.obb.', 'Rit.provento etf'],
 };
 
-// Tutti i tipi che movimentano il cash
-const TIPI_CASH = [
-  ...Object.values(TIPI).flat()
-];
-
 function parseData(str) {
   if (!str) return null;
   const s = String(str).trim();

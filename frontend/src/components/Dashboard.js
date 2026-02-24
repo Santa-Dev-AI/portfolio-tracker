@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
   ResponsiveContainer, PieChart, Pie, Cell,
   LineChart, Line
 } from 'recharts';
@@ -514,7 +514,7 @@ function VistaTradeChiusi({ strumenti, onSelectStrumento, privacy: p }) {
 
   const SortTh = ({ label, k }) => (
     <th onClick={() => handleSort(k)}
-        style={{ padding:'10px 14px', textAlign:'right', color:'#64748b',
+        style={{ padding:'10px 14px', textAlign:'right',
                  fontSize:'0.72rem', textTransform:'uppercase', letterSpacing:'0.5px',
                  cursor:'pointer', userSelect:'none', whiteSpace:'nowrap',
                  color: sort.key===k ? '#7dd3fc' : '#64748b' }}>
@@ -652,7 +652,7 @@ function GraficoStorico({ strumento }) {
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => { setStorico(d.data); setLoading(false); })
       .catch(() => { setErrore(true); setLoading(false); });
-  }, [strumento.ticker]);
+  }, [strumento.ticker, strumento.yahooSymbol]);
 
   if (loading) return (
     <div style={{ textAlign:'center', padding:'48px 0', color:'#475569', fontSize:'0.85rem' }}>
