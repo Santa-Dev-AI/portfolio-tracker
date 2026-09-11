@@ -5,22 +5,22 @@
 export const TIPI = {
   acquisto:         ['Acquisto'],
   vendita:          ['Vendita'],
-  // Rimborso a scadenza: trattato come vendita (azzera quantità, genera ricavo)
   rimborso:         ['Rimborso obbl. a scadenza'],
-  // Storno rimborso: annulla un rimborso precedente (es. rimborso parziale poi corretto)
   stornoRimborso:   ['St.rimborso obbl. a scade'],
   entrata:          ['Conferimento con bonifico'],
   uscita:           ['Prelievo bonifico'],
-  cedole:           ['Cedola obb.', 'Ratei att.obb.', 'St.cedola obb.',
+  cedole:           ['Cedola obb.', 'Ratei att.obb.',
                      'Rit.credito disaggio', 'Provento etf'],
+  storniCedole:     ['St.cedola obb.'],
   storni:           ['St.rit.debito disaggio'],
   commissioni:      ['Commissioni'],
   bolloPortafoglio: ['Bollo portafoglio titoli*'],
   capitalGain:      ['Ritenuta su plusvalenza'],
   tasse:            ['Rit.cedola obb.', 'Rit.ratei att.obb.',
                      'Rit.debito disaggio',
-                     'St.rit.cedola obb.', 'Ratei pass.obb.',
+                     'Ratei pass.obb.',
                      'Rit.ratei pass.obb.', 'Rit.provento etf'],
+  stornoTasse:      ['St.rit.cedola obb.', 'St.rit.debito disaggio'],
 };
 
 function parseData(str) {
@@ -49,7 +49,6 @@ export function calcolaIRR(flussi) {
   const maxT = Math.max(...cf.map(f => f.t));
   if (maxT < 0.01) return null;
 
-  // Soglia di convergenza proporzionale agli importi
   const maxFlusso = Math.max(...cf.map(f => Math.abs(f.v)));
   const soglia = maxFlusso * 0.0001;
 
@@ -85,7 +84,7 @@ export function elaboraPortafoglio(operazioni) {
   let totaleCapitalGain = 0;
   let totaleTasse       = 0;
   let totaleCedole      = 0;
-  let cashResiduo       = 0;   // saldo conto corrente
+  let cashResiduo       = 0;
   const flussiGlobali   = [];
   const strumenti       = {};
 
@@ -97,12 +96,8 @@ export function elaboraPortafoglio(operazioni) {
     const tipo    = String(op.tipoOperazione).trim();
     if (!data) continue;
 
-    // ── Cash: ogni operazione sposta il saldo ──────────────
-    // Il segno di importoEuro in Directa è già corretto:
-    // positivo = entra sul conto, negativo = esce dal conto
     cashResiduo += importo;
 
-    // ── Metriche globali ───────────────────────────────────
     if (TIPI.entrata.includes(tipo)) {
       capitaleInvestito += importo;
       flussiGlobali.push({ data, importo: -Math.abs(importo) });
@@ -115,10 +110,11 @@ export function elaboraPortafoglio(operazioni) {
     if (TIPI.bolloPortafoglio.includes(tipo)) totaleBollo       += Math.abs(importo);
     if (TIPI.capitalGain.includes(tipo))      totaleCapitalGain += Math.abs(importo);
     if (TIPI.tasse.includes(tipo))            totaleTasse       += Math.abs(importo);
+    if (TIPI.stornoTasse.includes(tipo))      totaleTasse       -= Math.abs(importo);
     if (TIPI.cedole.includes(tipo))           totaleCedole      += Math.abs(importo);
+    if (TIPI.storniCedole.includes(tipo))     totaleCedole      -= Math.abs(importo);
     if (TIPI.storni.includes(tipo))           totaleCedole      -= Math.abs(importo);
 
-    // ── Strumenti singoli (solo se hanno ISIN) ─────────────
     if (!op.isin || String(op.isin).trim() === '') continue;
     const isin = String(op.isin).trim();
 
@@ -155,14 +151,12 @@ export function elaboraPortafoglio(operazioni) {
       s.flussi.push({ data, importo: Math.abs(importo) });
     }
     if (TIPI.rimborso.includes(tipo)) {
-      // Rimborso a scadenza: azzera la quantità residua e conta come ricavo
       s.quantitaVenduta   += s.quantitaAttuale;
       s.quantitaAttuale    = 0;
       s.ricaviTotali      += Math.abs(importo);
       s.flussi.push({ data, importo: Math.abs(importo) });
     }
     if (TIPI.stornoRimborso.includes(tipo)) {
-      // Storno rimborso: annulla il rimborso precedente, ripristina quantità e toglie ricavo
       const qtaRipristinata = Math.abs(Number(op.quantita) || s.quantitaVenduta || 0);
       s.ricaviTotali      -= Math.abs(importo);
       s.quantitaAttuale   += qtaRipristinata;
@@ -172,6 +166,11 @@ export function elaboraPortafoglio(operazioni) {
     if (TIPI.cedole.includes(tipo)) {
       s.cedoleTotali      += Math.abs(importo);
       s.flussi.push({ data, importo: Math.abs(importo) });
+    }
+    if (TIPI.storniCedole.includes(tipo)) {
+      // Storno cedola: sottrae la cedola precedente errata
+      s.cedoleTotali      -= Math.abs(importo);
+      s.flussi.push({ data, importo: -Math.abs(importo) });
     }
     if (TIPI.storni.includes(tipo)) {
       s.cedoleTotali      -= Math.abs(importo);
@@ -185,9 +184,13 @@ export function elaboraPortafoglio(operazioni) {
       s.tasseTotali       += Math.abs(importo);
       s.flussi.push({ data, importo: -Math.abs(importo) });
     }
+    if (TIPI.stornoTasse.includes(tipo)) {
+      // Storno ritenuta: sottrae la ritenuta precedente errata
+      s.tasseTotali       -= Math.abs(importo);
+      s.flussi.push({ data, importo: Math.abs(importo) });
+    }
   }
 
-  // ── Strumento CASH sintetico ───────────────────────────────
   const cashArrotondato = Math.round(cashResiduo * 100) / 100;
   const strumentoCash = {
     isin:             'CASH',
@@ -201,7 +204,6 @@ export function elaboraPortafoglio(operazioni) {
     commissioniTotali:0,
     tasseTotali:      0,
     flussi:           [],
-    // Il cash ha valore attuale = se stesso
     prezzoAttuale:    1,
     valoreAttuale:    cashArrotondato,
     plNonRealizzato:  0,
@@ -210,7 +212,6 @@ export function elaboraPortafoglio(operazioni) {
   };
 
   const strumentiArray = Object.values(strumenti).map(s => {
-    // plRealizzato = ricavi vendite - costo proporzionale alla quantità venduta
     const qtaTotale      = s.quantitaAttuale + s.quantitaVenduta;
     const costoMedioUnit = qtaTotale > 0 ? s.costoTotale / qtaTotale : 0;
     const costoVenduto   = costoMedioUnit * s.quantitaVenduta;
@@ -229,7 +230,6 @@ export function elaboraPortafoglio(operazioni) {
     };
   });
 
-  // Aggiungi cash solo se positivo (saldo > 0)
   if (cashArrotondato > 0) {
     strumentiArray.push(strumentoCash);
   }
@@ -253,7 +253,6 @@ export function elaboraPortafoglio(operazioni) {
     plTotale:                 null,
   };
 
-  // Storico mensile
   const storicoMap = {};
   for (const op of operazioni) {
     if (!op || !op.tipoOperazione) continue;
