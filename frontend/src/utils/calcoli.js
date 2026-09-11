@@ -16,11 +16,13 @@ export const TIPI = {
   commissioni:      ['Commissioni'],
   bolloPortafoglio: ['Bollo portafoglio titoli*'],
   capitalGain:      ['Ritenuta su plusvalenza'],
+  // Ritenute fiscali vere (su cedole/dividendi)
   tasse:            ['Rit.cedola obb.', 'Rit.ratei att.obb.',
-                     'Rit.debito disaggio',
-                     'Ratei pass.obb.',
-                     'Rit.ratei pass.obb.', 'Rit.provento etf'],
+                     'Rit.debito disaggio', 'Rit.provento etf'],
   stornoTasse:      ['St.rit.cedola obb.', 'St.rit.debito disaggio'],
+  // Ratei passivi: parte del costo di acquisto obbligazione
+  rateiFissi:       ['Ratei pass.obb.'],
+  stornoRatei:      ['Rit.ratei pass.obb.'],
 };
 
 function parseData(str) {
@@ -143,6 +145,16 @@ export function elaboraPortafoglio(operazioni) {
       s.costoTotale       += Math.abs(importo);
       s.flussi.push({ data, importo: -Math.abs(importo) });
     }
+    if (TIPI.rateiFissi.includes(tipo)) {
+      // Ratei passivi: aumentano il costo di acquisto dell'obbligazione
+      s.costoTotale       += Math.abs(importo);
+      s.flussi.push({ data, importo: -Math.abs(importo) });
+    }
+    if (TIPI.stornoRatei.includes(tipo)) {
+      // Rimborso fiscale sui ratei: riduce il costo di acquisto
+      s.costoTotale       -= Math.abs(importo);
+      s.flussi.push({ data, importo: Math.abs(importo) });
+    }
     if (TIPI.vendita.includes(tipo)) {
       const qtaVenduta     = Math.abs(Number(op.quantita) || 0);
       s.quantitaAttuale   -= qtaVenduta;
@@ -168,7 +180,6 @@ export function elaboraPortafoglio(operazioni) {
       s.flussi.push({ data, importo: Math.abs(importo) });
     }
     if (TIPI.storniCedole.includes(tipo)) {
-      // Storno cedola: sottrae la cedola precedente errata
       s.cedoleTotali      -= Math.abs(importo);
       s.flussi.push({ data, importo: -Math.abs(importo) });
     }
@@ -185,7 +196,6 @@ export function elaboraPortafoglio(operazioni) {
       s.flussi.push({ data, importo: -Math.abs(importo) });
     }
     if (TIPI.stornoTasse.includes(tipo)) {
-      // Storno ritenuta: sottrae la ritenuta precedente errata
       s.tasseTotali       -= Math.abs(importo);
       s.flussi.push({ data, importo: Math.abs(importo) });
     }
